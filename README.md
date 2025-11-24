@@ -1,15 +1,4 @@
-# 📊 SGA - Sistema de Gestión y Análisis de Indicadores de Desarrollo
-
-Sistema automatizado para la recolección, procesamiento y análisis de indicadores económicos y de desarrollo del Banco Mundial.
-
-## 🎯 Descripción General
-
-**SGA** es una plataforma automatizada que:
-- 🌍 Recopila datos económicos y de desarrollo de países específicos
-- 📈 Procesa indicadores del Banco Mundial automáticamente
-- 🔄 Categoriza métricas según estándares internacionales
-- 📑 Genera reportes históricos en formato Excel
-- ⚡ Se ejecuta automáticamente cada 5 minutos vía GitHub Actions
+# 📊 Sistema automatizado para la recolección, procesamiento y análisis de indicadores económicos y de desarrollo del Banco Mundial.
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -469,28 +458,3 @@ schedule:
 - **Datos históricos:** Últimos 10 años
 - **Automatización:** 100% (GitHub Actions)
 - **Categorías de análisis:** 6 áreas principales
-
-## 🤝 Contribución
-
-Para contribuir al proyecto:
-1. Hacer fork del repositorio
-2. Crear una rama con tu feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit de cambios (`git commit -m 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crear un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo licencia MIT. Ver archivo `LICENSE` para más detalles.
-
-## 📧 Contacto y Soporte
-
-Para preguntas, sugerencias o reportar problemas:
-- Crear un [Issue](https://github.com/tu-usuario/SGA/issues) en GitHub
-- Consultar la documentación técnica en `/docs`
-
----
-
-**Última actualización:** 2024
-**Versión:** 1.0
-**Mantenedor:** Sistema automatizado SGA
