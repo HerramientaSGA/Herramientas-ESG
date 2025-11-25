@@ -64,7 +64,7 @@ Script de Python que automatiza todo el proceso de recolección y análisis de d
 
 **Funcionalidades clave:**
 - ✅ Búsqueda automática de código ISO del país
-- ✅ Descarga de 21+ indicadores del Banco Mundial
+- ✅ Descarga de 22+ indicadores del Banco Mundial
 - ✅ Transformación de datos de formato ancho a largo
 - ✅ Limpieza y normalización de datos numéricos
 - ✅ Categorización según estándares internacionales
@@ -87,7 +87,7 @@ Archivo de configuración que contiene los datos del formulario de entrada.
 **Campos principales:**
 ```json
 {
-  "Indique el país": "Egypt",              // País a analizar
+  "Indique el país": "Egypt",              // País a analizar dependiendo del proyecto
   "Indique su nombre": "...",              // Nombre del usuario
   "Indique su correo corporativo": "...",  // Email del usuario
   "Indique la localización...": "...",     // Coordenadas GPS
@@ -127,7 +127,7 @@ Acción:
 
 ## 📊 Indicadores Procesados
 
-El sistema procesa **21+ indicadores** del Banco Mundial organizados en 6 categorías:
+El sistema procesa **22+ indicadores** del Banco Mundial organizados en 6 categorías:
 
 ### 🏛️ Gobernanza y Estabilidad
 - **Control de Corrupción** (escala -2.5 a +2.5)
@@ -142,7 +142,8 @@ El sistema procesa **21+ indicadores** del Banco Mundial organizados en 6 catego
 - **Población Urbana** (%)
 - **Crecimiento Poblacional** (% anual)
 - **Porcentaje en Edad Laboral** (15-64 años)
-- **Porcentaje con Educación Secundaria** (%)
+- **Porcentaje en Edad Laboral con Educación Secundaria** (%)
+- **Tasa de participación en la fuerza laboral** (%)
 
 ### 💰 Economía y Pobreza
 - **Pobreza Multidimensional** (% población)
@@ -223,7 +224,7 @@ pip install pandas numpy openpyxl xlrd
 3. **Configurar el país en config.json:**
 ```json
 {
-  "Indique el país": "Tanzania"
+  "Indique el país": "Egypt"
 }
 ```
 
@@ -234,7 +235,7 @@ python HISTORICO.py
 
 5. **Resultado:**
 ```bash
-✅ Código de país encontrado: TZA
+✅ Código de país encontrado: EGY
 ✅ Poblacion_Destino cargado.
 ✅ Crecimiento_Poblacional cargado.
 ...
@@ -452,7 +453,7 @@ schedule:
 
 ## 📊 Estadísticas del Proyecto
 
-- **Indicadores procesados:** 21+
+- **Indicadores procesados:** 22+
 - **Fuentes de datos:** API del Banco Mundial
 - **Frecuencia de actualización:** Cada 5 minutos
 - **Datos históricos:** Últimos 10 años
