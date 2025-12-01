@@ -8,7 +8,7 @@ import json
 with open("config.json", "r", encoding="utf-8") as f:
     config = json.load(f)
 
-nombre_pais_json = config.get("Indique el país")
+nombre_pais_json = config.get("Indique el país (En inglés)")
 if not nombre_pais_json:
     raise ValueError("El archivo config.json debe contener la clave 'Indique el país'.")
 print(f"Nombre de país en JSON: {nombre_pais_json}")
@@ -232,3 +232,4 @@ print(Datos_Fecha.head())
 
 Datos_Fecha.to_excel("Historico.xlsx", index=False)
 print("\n✅ Datos guardados en 'Historico.xlsx'.")
+
