@@ -1,10 +1,30 @@
+"""
+Sistema de Gestión y Análisis de Indicadores de Desarrollo (SGA)
+
+Este script automatiza la recolección, procesamiento y categorización de indicadores
+económicos y de desarrollo del Banco Mundial para países específicos.
+
+Flujo del proceso:
+1. Lee configuración del país desde config.json
+2. Descarga datos de la API del Banco Mundial
+3. Procesa y limpia los datos
+4. Categoriza indicadores según umbrales definidos
+5. Genera archivo Excel con histórico de los últimos 10 años
+
+Autor: Sistema automatizado SGA
+Fecha: 2024
+"""
+
 import pandas as pd
 import numpy as np
 import json
 
 # ----------------------------------------------------------------------
-# 1️⃣ Leer configuración del JSON
+# 1️⃣ CONFIGURACIÓN: Leer país objetivo desde JSON
 # ----------------------------------------------------------------------
+# Lee el archivo de configuración que contiene el país a analizar.
+# Este archivo es actualizado automáticamente por el workflow de GitHub Actions
+# cuando se recibe un nuevo formulario a través de Power Automate.
 with open("config.json", "r", encoding="utf-8") as f:
     config = json.load(f)
 
@@ -14,8 +34,12 @@ if not nombre_pais_json:
 print(f"Nombre de país en JSON: {nombre_pais_json}")
 
 # ----------------------------------------------------------------------
-# 2️⃣ URLs de los datasets del World Bank
+# 2️⃣ FUENTES DE DATOS: URLs de la API del Banco Mundial
 # ----------------------------------------------------------------------
+# Diccionario con todos los indicadores que se descargarán.
+# Cada URL apunta a la API del Banco Mundial en formato Excel.
+# Los indicadores cubren áreas de: economía, demografía, gobernanza,
+# turismo, seguridad y servicios básicos.
 urls = {
     "Pobreza_Multidimennsional_Porcentual": "https://api.worldbank.org/v2/en/indicator/SI.POV.MDIM?downloadformat=excel",
     "Poblacion_Destino": "https://api.worldbank.org/v2/en/indicator/SP.POP.TOTL?downloadformat=excel",
@@ -42,12 +66,25 @@ urls = {
 }
 
 # ----------------------------------------------------------------------
-# 3️⃣ Función para buscar el código de país (coincidencia parcial)
+# 3️⃣ FUNCIÓN: Búsqueda de código de país
 # ----------------------------------------------------------------------
 def buscar_country_code(df, nombre_pais):
+    """
+    Busca el código ISO del país en los datos del Banco Mundial.
+
+    Utiliza coincidencia parcial para encontrar países incluso con nombres
+    variantes. Por ejemplo: "egypt" coincide con "Egypt, Arab Rep."
+
+    Args:
+        df (DataFrame): DataFrame con columnas 'Country Name' y 'Country Code'
+        nombre_pais (str): Nombre del país a buscar (puede ser parcial)
+
+    Returns:
+        str: Código ISO del país (ej: 'EGY', 'TZA') o None si no se encuentra
+    """
     nombre_pais = nombre_pais.lower().strip()
 
-    # Coincidencia parcial: "egypt" → "egypt, arab rep."
+    # Búsqueda por coincidencia parcial en el nombre del país
     mask = df["Country Name"].str.lower().str.contains(nombre_pais, na=False)
 
     fila = df[mask]
@@ -55,8 +92,10 @@ def buscar_country_code(df, nombre_pais):
     return fila["Country Code"].values[0] if not fila.empty else None
 
 # ----------------------------------------------------------------------
-# 4️⃣ Buscar country code en los datasets
+# 4️⃣ IDENTIFICACIÓN: Obtener código ISO del país
 # ----------------------------------------------------------------------
+# Itera sobre los datasets hasta encontrar el código del país.
+# Se utiliza el primer dataset que contenga coincidencia con el nombre.
 country_code_obtenido = None
 for nombre, url in urls.items():
     try:
@@ -73,32 +112,62 @@ if not country_code_obtenido:
     raise ValueError(f"No se encontró el país '{nombre_pais_json}' en ninguno de los datasets.")
 
 # ----------------------------------------------------------------------
-# 5️⃣ Función para leer y transformar Excel del World Bank
+# 5️⃣ FUNCIÓN: Extracción y transformación de datos
 # ----------------------------------------------------------------------
 def leer_excel_codigo(url, nombre_indicador, codigo=country_code_obtenido, codigo_upper=None):
+    """
+    Lee un archivo Excel del Banco Mundial y extrae datos históricos del país.
+
+    Transforma el formato de columnas horizontales (años) a formato largo (filas),
+    facilitando el análisis temporal y la unión de múltiples indicadores.
+
+    Args:
+        url (str): URL del archivo Excel del Banco Mundial
+        nombre_indicador (str): Nombre del indicador (para mensajes de error)
+        codigo (str): Código ISO del país
+        codigo_upper (str, optional): Nombre de la columna en el resultado
+
+    Returns:
+        DataFrame: Tabla con columnas 'año' y el indicador correspondiente
+
+    Raises:
+        RuntimeError: Si falla la lectura del Excel
+        ValueError: Si el país no existe en el dataset
+    """
     if codigo_upper is None:
         codigo_upper = codigo
     try:
+        # Los datos del Banco Mundial tienen 3 filas de encabezado
         df = pd.read_excel(url, sheet_name="Data", header=3)
     except Exception as e:
         raise RuntimeError(f"Fallo en la lectura del Excel para {nombre_indicador}: {e}")
 
+    # Verificar que el país existe en el dataset
     if codigo not in df["Country Code"].unique():
         raise ValueError(f"No se encontró el país '{codigo}' en el dataset de {nombre_indicador}.")
 
+    # Filtrar datos del país objetivo
     fila = df[df["Country Code"] == codigo]
+
+    # Identificar columnas de años (son columnas con nombres numéricos)
     columnas_años = [c for c in df.columns if str(c).isdigit()]
 
+    # Transformar de formato ancho a formato largo
     df_result = fila[["Country Code"] + columnas_años].melt(
         id_vars="Country Code", var_name="año", value_name=codigo_upper
     )
+
+    # Convertir a tipos numéricos apropiados
     df_result[codigo_upper] = pd.to_numeric(df_result[codigo_upper], errors='coerce')
     df_result['año'] = pd.to_numeric(df_result['año'], errors='coerce').astype('Int64')
+
     return df_result.drop(columns=["Country Code"])
 
 # ----------------------------------------------------------------------
-# 6️⃣ Carga, procesamiento y unión de datos
+# 6️⃣ PROCESAMIENTO: Carga y unión de todos los indicadores
 # ----------------------------------------------------------------------
+# Descarga cada indicador y los une en un único DataFrame por año.
+# Si un indicador falla, se registra pero no detiene el proceso.
 datasets = {}
 for nombre, url in urls.items():
     try:
@@ -119,8 +188,10 @@ Datos_Fecha = Datos_Fecha[pd.notna(Datos_Fecha['año'])].reset_index(drop=True)
 Datos_Fecha['año'] = Datos_Fecha['año'].astype(int)
 
 # ----------------------------------------------------------------------
-# 7️⃣ Limpieza y cálculo de ratio
+# 7️⃣ LIMPIEZA: Normalización de datos y cálculo de métricas derivadas
 # ----------------------------------------------------------------------
+# Convierte todas las columnas numéricas a formato apropiado.
+# Calcula el ratio turistas/residentes como indicador clave del turismo.
 numericas = [
     "Cantidad_Turistas_Año", "Poblacion_Destino", "Control_Corrupcion", "Estado_Derecho",
     "Efectividad_Gubernamental", "Rendicion_Cuentas", "Estabilidad_Politica", "Calidad_Regulatoria",
@@ -141,12 +212,30 @@ if "Cantidad_Turistas_Año" in Datos_Fecha.columns and "Poblacion_Destino" in Da
     )
 
 # ----------------------------------------------------------------------
-# 8️⃣ Categorización
+# 8️⃣ CATEGORIZACIÓN: Clasificación de indicadores según niveles de riesgo
 # ----------------------------------------------------------------------
+# Clasifica cada indicador en categorías: BAJO, MEDIO, ALTO, MUY ALTO
+# según umbrales definidos por estándares internacionales.
+
 def categorizar_npselect(df, col, condiciones, valores):
+    """
+    Aplica categorización condicional a una columna del DataFrame.
+
+    Crea una nueva columna con sufijo '_cat' que contiene la categoría
+    correspondiente según las condiciones especificadas.
+
+    Args:
+        df (DataFrame): DataFrame a modificar
+        col (str): Nombre de la columna a categorizar
+        condiciones (list): Lista de condiciones booleanas de numpy
+        valores (list): Lista de valores correspondientes a cada condición
+    """
     df[f"{col}_cat"] = np.select(condiciones, valores, default=None).astype(object)
 
-# Gobernanza
+# ------------------------------------------------------------------
+# 8.1 Indicadores de Gobernanza (escala -2.5 a +2.5)
+# ------------------------------------------------------------------
+# Valores positivos = mejor gobernanza, negativos = peor gobernanza
 gob_cols = ["Control_Corrupcion", "Estado_Derecho", "Efectividad_Gubernamental", "Rendicion_Cuentas"]
 for col in gob_cols:
     if col in Datos_Fecha.columns:
@@ -159,7 +248,10 @@ for col in gob_cols:
         valores = ["BAJO ⭣", "MEDIO ⭤", "ALTO ⭡", "MUY ALTO ⚠"]
         categorizar_npselect(Datos_Fecha, col, condiciones, valores)
 
-# Estabilidad y Regulación
+# ------------------------------------------------------------------
+# 8.2 Estabilidad Política y Calidad Regulatoria (escala percentil 0-100)
+# ------------------------------------------------------------------
+# Valores altos = mejor ranking, bajos = peor posición
 gob_cols = ["Estabilidad_Politica", "Calidad_Regulatoria"]
 for col in gob_cols:
     if col in Datos_Fecha.columns:
@@ -172,7 +264,10 @@ for col in gob_cols:
         valores = ["BAJO ⭣", "MEDIO ⭤", "ALTO ⭡", "MUY ALTO ⚠"]
         categorizar_npselect(Datos_Fecha, col, condiciones, valores)
 
-# Homicidios
+# ------------------------------------------------------------------
+# 8.3 Homicidios (por cada 100,000 habitantes)
+# ------------------------------------------------------------------
+# Basado en estándares de la OMS y UNODC
 if "Homicidios" in Datos_Fecha.columns:
     condiciones = [
         Datos_Fecha["Homicidios"] < 5,
@@ -183,7 +278,10 @@ if "Homicidios" in Datos_Fecha.columns:
     valores = ["BAJO ⭣", "MEDIO ⭤", "ALTO ⭡", "MUY ALTO ⚠"]
     categorizar_npselect(Datos_Fecha, "Homicidios", condiciones, valores)
 
-# Crecimiento poblacional
+# ------------------------------------------------------------------
+# 8.4 Crecimiento Poblacional (porcentaje anual)
+# ------------------------------------------------------------------
+# Negativo = decrecimiento, 0-1% = estable, >2% = alto crecimiento
 if "Crecimiento_Poblacional" in Datos_Fecha.columns:
     condiciones = [
         Datos_Fecha["Crecimiento_Poblacional"] < 0,
@@ -194,13 +292,19 @@ if "Crecimiento_Poblacional" in Datos_Fecha.columns:
     valores = ["ALTO ⭡", "MEDIO ⭤", "BAJO ⭣", "ALTO ⭡"]
     categorizar_npselect(Datos_Fecha, "Crecimiento_Poblacional", condiciones, valores)
 
-# IPC
+# ------------------------------------------------------------------
+# 8.5 Índice de Precios al Consumidor - Inflación (% anual)
+# ------------------------------------------------------------------
+# <3% = bajo (estable), 3-15% = medio, >15% = alto (problemático)
 if "IPC" in Datos_Fecha.columns:
     bins = [-np.inf, 3, 15, np.inf]
     labels = ["BAJO ⭣", "MEDIO ⭤", "ALTO ⭡"]
     Datos_Fecha["IPC_cat"] = pd.cut(Datos_Fecha["IPC"], bins=bins, labels=labels, right=False).astype(object)
 
-# Indicadores adicionales
+# ------------------------------------------------------------------
+# 8.6 Otros indicadores socioeconómicos
+# ------------------------------------------------------------------
+# Rangos definidos según estándares internacionales de desarrollo
 indicadores = {
     "Pobreza_Poblacion_Porcentual": [(0,10),(10,50),(50, np.inf)],
     "Pobreza_Multidimennsional_Porcentual": [(0,10),(10,30),(30,np.inf)],
@@ -224,9 +328,10 @@ for col, rangos in indicadores.items():
         categorizar_npselect(Datos_Fecha, col, condiciones, valores_base)
 
 # ----------------------------------------------------------------------
-# 9️⃣ Guardar resultado
+# 9️⃣ EXPORTACIÓN: Guardar resultado en Excel
 # ----------------------------------------------------------------------
-Datos_Fecha = Datos_Fecha.iloc[-10:]  # Últimos 10 años
+# Se conservan solo los últimos 10 años para análisis de tendencias recientes
+Datos_Fecha = Datos_Fecha.iloc[-10:]
 print("\nVista preliminar de Datos_Fecha:")
 print(Datos_Fecha.head())
 
