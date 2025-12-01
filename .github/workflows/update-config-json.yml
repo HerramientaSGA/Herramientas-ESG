@@ -4,6 +4,9 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  contents: write  # Necesario para permitir push desde GITHUB_TOKEN
+
 jobs:
   update-config:
     runs-on: ubuntu-latest
@@ -24,6 +27,5 @@ jobs:
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
           git add config.json
-          git commit -m "Update config.json desde Power Automate"
-          git push
-
+          git commit -m "Update config.json desde Power Automate" || echo "No changes to commit"
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }}
