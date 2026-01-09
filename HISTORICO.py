@@ -38,7 +38,8 @@ urls = {
     "IPC": "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL.ZG?downloadformat=excel",
     "Acceso_Agua_Potable": "https://api.worldbank.org/v2/en/indicator/SH.H2O.BASW.ZS?downloadformat=excel",
     "Acceso_Saneamiento": "https://api.worldbank.org/v2/es/indicator/SH.STA.BASS.ZS?downloadformat=excel",
-    "Poblacion_Urbana": "https://api.worldbank.org/v2/en/indicator/EN.POP.SLUM.UR.ZS?downloadformat=excel"
+    "Poblacion_Urbana": "https://api.worldbank.org/v2/en/indicator/EN.POP.SLUM.UR.ZS?downloadformat=excel",
+    "Nivel_desarrollo_turistico": "https://data360files.worldbank.org/data360-data/data/WEF_TTDI/WEF_TTDI_WIDEF.csv"
 }
 
 # ----------------------------------------------------------------------
@@ -232,4 +233,5 @@ print(Datos_Fecha.head())
 
 Datos_Fecha.to_excel("Historico.xlsx", index=False)
 print("\n✅ Datos guardados en 'Historico.xlsx'.")
+
 
