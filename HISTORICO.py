@@ -204,12 +204,12 @@ if "IPC" in Datos_Fecha.columns:
 indicadores = {
     "Pobreza_Poblacion_Porcentual": [(0,10),(10,50),(50, np.inf)],
     "Pobreza_Multidimennsional_Porcentual": [(0,10),(10,30),(30,np.inf)],
-    "Porcentaje_Edad_Laboral": [(0,55),(55,70),(70,np.inf)],
-    "Porcentaje_Edad_Laboral_Estudios": [(0,30),(30,59),(60,np.inf)],
-    "Tasa_Desempleo": [(0,6),(6,10),(10,np.inf)],
+    "Porcentaje_Edad_Laboral": [(70,np.inf),(55,70),(0,55)],
+    "Porcentaje_Edad_Laboral_Estudios": [(60,np.inf),(30,59),(0,30)],
+    "Tasa_Desempleo": [(10,np.inf),(6,10),(0,6)],
     "ratio_turistas_residentes": [(0,100),(100,300),(300,np.inf)],
-    "Acceso_Agua_Potable": [(0,60),(60,90),(90,np.inf)],
-    "Acceso_Saneamiento": [(0,60),(60,90),(90,np.inf)],
+    "Acceso_Agua_Potable": [(90,np.inf),(60,90),(0,60)],
+    "Acceso_Saneamiento": [(90,np.inf),(60,90),(0,60)],
     "Inseguridad_Alimentaria": [(0,10),(10,30),(30,np.inf)],
     "Poblacion_Urbana": [(0,10),(10,30),(30,np.inf)]
 }
@@ -232,6 +232,7 @@ print(Datos_Fecha.head())
 
 Datos_Fecha.to_excel("Historico.xlsx", index=False)
 print("\n✅ Datos guardados en 'Historico.xlsx'.")
+
 
 
 
