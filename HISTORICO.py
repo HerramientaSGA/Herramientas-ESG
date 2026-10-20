@@ -1,26 +1,3 @@
-"""
-HISTORICO.py — versión corregida (16/10/2026)
-
-Genera Historico.xlsx con los indicadores del Banco Mundial del país indicado en config.json.
-El archivo de salida mantiene EXACTAMENTE las mismas 43 columnas, en el mismo orden y en la
-hoja "Sheet1", para que Power BI no necesite ningún cambio.
-
-Cambios respecto a la versión anterior:
-  1. Lee config.json tanto si es un objeto como si es una lista de filas (formato actual) y
-     localiza la pregunta del país aunque cambie su texto.
-  2. Identifica el país por su código ISO3 con la lista oficial de países del Banco Mundial
-     (admite variantes como «United Republic of Tanzania», «USA» o «Turkey») y evita
-     coincidencias parciales erróneas («Samoa» -> American Samoa; «Congo» ambiguo).
-  3. Los seis indicadores de gobernanza usan los códigos vigentes (GOV_WGI_*). Los dos
-     percentiles que ya no se publican (Estabilidad política y Calidad regulatoria) se
-     calculan a partir de la serie nueva de todos los países (MODO_PERCENTIL = "calculado").
-  4. Descarga cada indicador del servicio de datos del Banco Mundial (API JSON) con reintentos.
-  5. Valida rangos antes de guardar: si algún valor es imposible, se detiene sin escribir el
-     archivo, de modo que se conserva el anterior.
-Las reglas de categorización (umbrales) son las mismas que en la versión anterior.
-Solo usa librerías ya instaladas en el proceso de GitHub (pandas, numpy, openpyxl).
-"""
-
 import json
 import time
 import unicodedata
@@ -251,8 +228,8 @@ def categorizar(df):
     tramos = {
         "Pobreza_Poblacion_Porcentual": [(0, 10), (10, 50), (50, np.inf)],
         "Pobreza_Multidimennsional_Porcentual": [(0, 10), (10, 30), (30, np.inf)],
-        "Porcentaje_Edad_Laboral": [(70, np.inf), (55, 70), (0, 55)],
-        "Porcentaje_Edad_Laboral_Estudios": [(60, np.inf), (30, 59), (0, 30)],
+        # Spec CHR Contexto: <55 ALTO, 55–70 BAJO, >70 MEDIO
+        "Porcentaje_Edad_Laboral": [(0, 55), (55, 70), (70, np.inf)],
         "Tasa_Desempleo": [(10, np.inf), (6, 10), (0, 6)],
         "ratio_turistas_residentes": [(0, 100), (100, 300), (300, np.inf)],
         "Acceso_Agua_Potable": [(90, np.inf), (60, 90), (0, 60)],
@@ -261,7 +238,22 @@ def categorizar(df):
         "Poblacion_Urbana": [(0, 10), (10, 30), (30, np.inf)],
     }
     for col, rangos in tramos.items():
-        sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos], [ETQ["B"], ETQ["M"], ETQ["A"]])
+        if col == "Porcentaje_Edad_Laboral":
+            sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
+                [ETQ["A"], ETQ["B"], ETQ["M"]])
+        elif col == "Tasa_Desempleo":
+            # Disponibilidad de mano de obra: desempleo alto → favorable (BAJO)
+            sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
+                [ETQ["B"], ETQ["M"], ETQ["A"]])
+        else:
+            sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
+                [ETQ["B"], ETQ["M"], ETQ["A"]])
+    x = df["Porcentaje_Edad_Laboral_Estudios"]
+    sel(
+        "Porcentaje_Edad_Laboral_Estudios",
+        [x >= 60, (x >= 30) & (x < 60), (x >= 10) & (x < 30), x < 10],
+        [ETQ["B"], ETQ["M"], ETQ["A"], ETQ["MA"]],
+    )
     df.replace({"nan": None}, inplace=True)
     return df
 
