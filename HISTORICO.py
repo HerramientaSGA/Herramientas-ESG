@@ -86,7 +86,7 @@ ALIAS = {
     "hong kong": "HKG", "macau": "MAC", "macao": "MAC", "palestine": "PSE",
 }
 
-ETQ = {"B": "BAJA ⭣", "M": "MODERADA ⭤", "A": "ALTA ⭡", "MA": "CRÍTICA ⚠"}
+ETQ = {"B": "BAJO ⭣", "M": "MEDIO ⭤", "A": "ALTO ⭡", "MA": "MUY ALTO ⚠"}
 
 
 # ----------------------------------------------------------------------
@@ -251,7 +251,7 @@ def percentil_calculado(iso3, codigo_est, anio_fin, paises):
 
 
 # ----------------------------------------------------------------------
-# 4. Categorización (etiquetas BAJA / MODERADA / ALTA / CRÍTICA)
+# 4. Categorización (etiquetas BAJO / MEDIO / ALTO / MUY ALTO; umbrales de la especificación VF_INDICADORES)
 # ----------------------------------------------------------------------
 def categorizar(df):
     def sel(col, condiciones, valores):
@@ -276,32 +276,24 @@ def categorizar(df):
     tramos = {
         "Pobreza_Poblacion_Porcentual": [(0, 10), (10, 50), (50, np.inf)],
         "Pobreza_Multidimennsional_Porcentual": [(0, 10), (10, 30), (30, np.inf)],
-        # Spec CHR Contexto: <55 ALTO, 55–70 BAJO, >70 MEDIO
-        "Porcentaje_Edad_Laboral": [(0, 55), (55, 70), (70, np.inf)],
-        "Tasa_Desempleo": [(10, np.inf), (6, 10), (0, 6)],
         "ratio_turistas_residentes": [(0, 100), (100, 300), (300, np.inf)],
         "Acceso_Agua_Potable": [(90, np.inf), (60, 90), (0, 60)],
         "Acceso_Saneamiento": [(90, np.inf), (60, 90), (0, 60)],
-        "Inseguridad_Alimentaria": [(0, 10), (10, 30), (30, np.inf)],
+        "Inseguridad_Alimentaria": [(0, 10), (10, 25), (25, np.inf)],
         "Poblacion_Urbana": [(0, 10), (10, 30), (30, np.inf)],
     }
     for col, rangos in tramos.items():
-        if col == "Porcentaje_Edad_Laboral":
-            sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
-                [ETQ["A"], ETQ["B"], ETQ["M"]])
-        elif col == "Tasa_Desempleo":
-            # Disponibilidad de mano de obra: desempleo alto → favorable (BAJO)
-            sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
-                [ETQ["B"], ETQ["M"], ETQ["A"]])
-        else:
-            sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
-                [ETQ["B"], ETQ["M"], ETQ["A"]])
+        sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
+            [ETQ["B"], ETQ["M"], ETQ["A"]])
+    # % de población en edad laboral: <55 % ALTO (envejecida) · 55-70 % MEDIO (equilibrada) · >70 % ALTO (presión laboral)
+    x = df["Porcentaje_Edad_Laboral"]
+    sel("Porcentaje_Edad_Laboral", [x < 55, (x >= 55) & (x <= 70), x > 70], [ETQ["A"], ETQ["M"], ETQ["A"]])
+    # Tasa de desempleo: <6 % BAJO · 6-10 % MEDIO · >10 % ALTO
+    x = df["Tasa_Desempleo"]
+    sel("Tasa_Desempleo", [x < 6, (x >= 6) & (x <= 10), x > 10], [ETQ["B"], ETQ["M"], ETQ["A"]])
+    # Población en edad laboral con educación secundaria o superior: ≥60 % BAJO · 30-59 % MEDIO · <30 % ALTO
     x = df["Porcentaje_Edad_Laboral_Estudios"]
-    sel(
-        "Porcentaje_Edad_Laboral_Estudios",
-        [x >= 60, (x >= 30) & (x < 60), (x >= 10) & (x < 30), x < 10],
-        [ETQ["B"], ETQ["M"], ETQ["A"], ETQ["MA"]],
-    )
+    sel("Porcentaje_Edad_Laboral_Estudios", [x >= 60, (x >= 30) & (x < 60), x < 30], [ETQ["B"], ETQ["M"], ETQ["A"]])
     df.replace({"nan": None}, inplace=True)
     return df
 
