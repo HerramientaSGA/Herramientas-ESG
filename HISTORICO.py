@@ -90,6 +90,54 @@ ETQ = {"B": "BAJA ⭣", "M": "MODERADA ⭤", "A": "ALTA ⭡", "MA": "CRÍTICA �
 
 
 # ----------------------------------------------------------------------
+# Región del país (siete opciones de la especificación VF_INDICADORES)
+# ----------------------------------------------------------------------
+# África · América del Norte · América Latina y el Caribe · Asia · Europa · Medio Oriente · Oceanía
+# Se obtiene del código ISO3 con la clasificación de regiones de la ONU (M49). «Medio Oriente» es
+# Asia occidental en M49 (incluye Turquía, Chipre, Georgia, Armenia y Azerbaiyán); Irán queda en
+# Asia (Asia meridional) y Egipto en África (África septentrional).
+# Para mover un país de región sin tocar la tabla: AJUSTES_REGION = {"IRN": "Medio Oriente"}
+REGIONES_VALIDAS = ["África", "América del Norte", "América Latina y el Caribe", "Asia", "Europa", "Medio Oriente", "Oceanía"]
+COLUMNA_REGION = "Region"
+AJUSTES_REGION = {}
+REGIONES = {
+    "África": (
+        "AGO BDI BEN BFA BWA CAF CIV CMR COD COG COM CPV DJI DZA EGY ERI ETH GAB GHA GIN GMB GNB "
+        "GNQ KEN LBR LBY LSO MAR MDG MLI MOZ MRT MUS MWI NAM NER NGA RWA SDN SEN SLE SOM SSD STP "
+        "SWZ SYC TCD TGO TUN TZA UGA ZAF ZMB ZWE"
+    ),
+    "América del Norte": (
+        "BMU CAN GRL USA"
+    ),
+    "América Latina y el Caribe": (
+        "ABW ARG ATG BHS BLZ BOL BRA BRB CHL COL CRI CUB CUW CYM DMA DOM ECU GRD GTM GUY HND HTI "
+        "JAM KNA LCA MAF MEX NIC PAN PER PRI PRY SLV SUR SXM TCA TTO URY VCT VEN VGB VIR"
+    ),
+    "Asia": (
+        "AFG BGD BRN BTN CHN HKG IDN IND IRN JPN KAZ KGZ KHM KOR LAO LKA MAC MDV MMR MNG MYS NPL "
+        "PAK PHL PRK SGP THA TJK TKM TLS UZB VNM"
+    ),
+    "Europa": (
+        "ALB AND AUT BEL BGR BIH BLR CHE CHI CZE DEU DNK ESP EST FIN FRA FRO GBR GIB GRC HRV HUN "
+        "IMN IRL ISL ITA LIE LTU LUX LVA MCO MDA MKD MLT MNE NLD NOR POL PRT ROU RUS SMR SRB SVK "
+        "SVN SWE UKR XKX"
+    ),
+    "Medio Oriente": (
+        "ARE ARM AZE BHR CYP GEO IRQ ISR JOR KWT LBN OMN PSE QAT SAU SYR TUR YEM"
+    ),
+    "Oceanía": (
+        "ASM AUS FJI FSM GUM KIR MHL MNP NCL NRU NZL PLW PNG PYF SLB TON TUV VUT WSM"
+    ),
+}
+REGION_DE_PAIS = {iso: region for region, codigos in REGIONES.items() for iso in codigos.split()}
+
+
+def region_de(iso3):
+    """Región (una de las siete de la especificación) del país; cadena vacía si no se conoce."""
+    return AJUSTES_REGION.get(iso3) or REGION_DE_PAIS.get(iso3, "")
+
+
+# ----------------------------------------------------------------------
 # Utilidades
 # ----------------------------------------------------------------------
 def normalizar(texto):
@@ -277,8 +325,11 @@ RANGOS = {
 
 def validar(df):
     errores = []
-    if list(df.columns) != COLUMNAS_DATOS + COLUMNAS_CAT:
+    if list(df.columns) != COLUMNAS_DATOS + COLUMNAS_CAT + [COLUMNA_REGION]:
         errores.append("las columnas no coinciden con las que espera Power BI")
+    regiones_raras = set(df[COLUMNA_REGION].dropna().unique()) - set(REGIONES_VALIDAS) - {""}
+    if regiones_raras:
+        errores.append(f"región no válida: {sorted(regiones_raras)}")
     if df["Poblacion_Destino"].notna().sum() == 0:
         errores.append("no hay datos de población: el país no tiene datos en el Banco Mundial")
     for col, (lo, hi) in RANGOS.items():
@@ -298,6 +349,8 @@ def main():
     paises = paises_banco_mundial()
     iso3 = resolver_pais(nombre, paises)
     print(f"País en config.json: «{nombre}» -> {iso3} ({paises[iso3]})")
+    region = region_de(iso3)
+    print(f"Región: {region or '(no se conoce; la columna Region queda vacía)'}")
 
     anio_fin = pd.Timestamp.today().year
     series = {}
@@ -322,11 +375,12 @@ def main():
         df[col] = [series[col].get(a, np.nan) for a in anios]
     df["ratio_turistas_residentes"] = df["Cantidad_Turistas_Año"] / df["Poblacion_Destino"] * 100
     df = categorizar(df)
-    df = df[COLUMNAS_DATOS + COLUMNAS_CAT]
+    df[COLUMNA_REGION] = region
+    df = df[COLUMNAS_DATOS + COLUMNAS_CAT + [COLUMNA_REGION]]
 
     validar(df)
     df.to_excel("Historico.xlsx", index=False)   # hoja "Sheet1", como espera Power BI
-    print(f"\nHistorico.xlsx guardado: {iso3}, años {anios[0]}-{anios[-1]}, {len(df.columns)} columnas.")
+    print(f"\nHistorico.xlsx guardado: {iso3} ({region}), años {anios[0]}-{anios[-1]}, {len(df.columns)} columnas.")
 
 
 if __name__ == "__main__":
