@@ -86,7 +86,7 @@ ALIAS = {
     "hong kong": "HKG", "macau": "MAC", "macao": "MAC", "palestine": "PSE",
 }
 
-ETQ = {"B": "BAJO ⭣", "M": "MEDIO ⭤", "A": "ALTO ⭡", "MA": "MUY ALTO ⚠"}
+ETQ = {"B": "BAJA ⭣", "M": "MODERADA ⭤", "A": "ALTA ⭡", "MA": "CRÍTICA ⚠"}
 
 
 # ----------------------------------------------------------------------
@@ -203,7 +203,7 @@ def percentil_calculado(iso3, codigo_est, anio_fin, paises):
 
 
 # ----------------------------------------------------------------------
-# 4. Categorización (mismos umbrales que la versión anterior)
+# 4. Categorización (etiquetas BAJA / MODERADA / ALTA / CRÍTICA)
 # ----------------------------------------------------------------------
 def categorizar(df):
     def sel(col, condiciones, valores):
