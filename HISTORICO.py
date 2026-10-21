@@ -254,46 +254,56 @@ def percentil_calculado(iso3, codigo_est, anio_fin, paises):
 # 4. Categorización (etiquetas BAJO / MEDIO / ALTO / MUY ALTO; umbrales de la especificación VF_INDICADORES)
 # ----------------------------------------------------------------------
 def categorizar(df):
+    """Etiqueta cada indicador con los umbrales del Excel (VF_INDICADORES y hoja de comentarios CHR_ZANZIBAR).
+
+    Los tramos no dejan huecos: cada valor cae en uno y solo uno. Donde el Excel escribe «a-b» el límite superior
+    pertenece a ese tramo (por ejemplo, un IPC del 15 % es MEDIO y uno del 15,1 % es ALTO)."""
+    B, M, A, MA = ETQ["B"], ETQ["M"], ETQ["A"], ETQ["MA"]
+
     def sel(col, condiciones, valores):
         df[f"{col}_cat"] = np.select(condiciones, valores, default=None).astype(object)
 
+    # Gobernanza, escala -3 a 3: >=1,0 BAJO · 0,0-0,99 MEDIO · -1,0 a -0,01 ALTO · <-1,0 MUY ALTO
     for col in ["Control_Corrupcion", "Estado_Derecho", "Efectividad_Gubernamental", "Rendicion_Cuentas"]:
         x = df[col]
-        sel(col, [x >= 1.0, (x >= 0.0) & (x < 1.0), (x >= -1.0) & (x <= -0.01), x < -1.0],
-            [ETQ["B"], ETQ["M"], ETQ["A"], ETQ["MA"]])
+        sel(col, [x >= 1.0, (x >= 0.0) & (x < 1.0), (x >= -1.0) & (x < 0.0), x < -1.0], [B, M, A, MA])
+    # Gobernanza, percentil 0-100: >=75 BAJO · 50-74 MEDIO · 25-49 ALTO · <25 MUY ALTO
     for col in ["Estabilidad_Politica", "Calidad_Regulatoria"]:
         x = df[col]
-        sel(col, [x >= 75, (x >= 50) & (x < 75), (x >= 25) & (x <= 49), x < 25],
-            [ETQ["B"], ETQ["M"], ETQ["A"], ETQ["MA"]])
+        sel(col, [x >= 75, (x >= 50) & (x < 75), (x >= 25) & (x < 50), x < 25], [B, M, A, MA])
+    # Homicidios por 100.000: <5 BAJO · 5-15 MEDIO · >15 ALTO · >30 MUY ALTO
     x = df["Homicidios"]
-    sel("Homicidios", [x < 5, (x >= 5) & (x <= 15), (x > 15) & (x <= 30), x > 30],
-        [ETQ["B"], ETQ["M"], ETQ["A"], ETQ["MA"]])
-    x = df["Crecimiento_Poblacional"]
-    sel("Crecimiento_Poblacional", [x < 0, (x >= 0) & (x <= 1), (x > 1) & (x <= 2), x > 2],
-        [ETQ["A"], ETQ["M"], ETQ["B"], ETQ["A"]])
-    df["IPC_cat"] = pd.cut(df["IPC"], bins=[-np.inf, 3, 15, np.inf],
-                           labels=[ETQ["B"], ETQ["M"], ETQ["A"]], right=False).astype(object)
-    tramos = {
-        "Pobreza_Poblacion_Porcentual": [(0, 10), (10, 50), (50, np.inf)],
-        "Pobreza_Multidimennsional_Porcentual": [(0, 10), (10, 30), (30, np.inf)],
-        "ratio_turistas_residentes": [(0, 100), (100, 300), (300, np.inf)],
-        "Acceso_Agua_Potable": [(90, np.inf), (60, 90), (0, 60)],
-        "Acceso_Saneamiento": [(90, np.inf), (60, 90), (0, 60)],
-        "Inseguridad_Alimentaria": [(0, 10), (10, 25), (25, np.inf)],
-        "Poblacion_Urbana": [(0, 10), (10, 30), (30, np.inf)],
-    }
-    for col, rangos in tramos.items():
-        sel(col, [(df[col] >= lo) & (df[col] < hi) for lo, hi in rangos],
-            [ETQ["B"], ETQ["M"], ETQ["A"]])
-    # % de población en edad laboral: <55 % ALTO (envejecida) · 55-70 % MEDIO (equilibrada) · >70 % ALTO (presión laboral)
+    sel("Homicidios", [x < 5, (x >= 5) & (x <= 15), (x > 15) & (x <= 30), x > 30], [B, M, A, MA])
+    # Crecimiento poblacional: informativo, sin scoring (hoja CHR_ZANZIBAR). La columna se mantiene vacía.
+    df["Crecimiento_Poblacional_cat"] = None
+    # IPC: <3 % BAJO · 3-15 % MEDIO · >15 % ALTO
+    x = df["IPC"]
+    sel("IPC", [x < 3, (x >= 3) & (x <= 15), x > 15], [B, M, A])
+
+    # Tres tramos: <a BAJO · a-b MEDIO · >b ALTO
+    for col, a, b in [
+        ("Pobreza_Poblacion_Porcentual", 10, 50),
+        ("Pobreza_Multidimennsional_Porcentual", 10, 30),
+        ("ratio_turistas_residentes", 100, 300),
+        ("Inseguridad_Alimentaria", 10, 25),
+        ("Poblacion_Urbana", 10, 30),
+    ]:
+        x = df[col]
+        sel(col, [x < a, (x >= a) & (x <= b), x > b], [B, M, A])
+    # Acceso a agua y a saneamiento (red pública): >=90 % BAJO · 60-89 % MEDIO · <60 % ALTO
+    for col in ["Acceso_Agua_Potable", "Acceso_Saneamiento"]:
+        x = df[col]
+        sel(col, [x >= 90, (x >= 60) & (x < 90), x < 60], [B, M, A])
+    # % de población en edad laboral (hoja CHR_ZANZIBAR): <55 % ALTO (envejecida) · 55-70 % BAJO (equilibrada) · >70 % MEDIO (presión laboral)
     x = df["Porcentaje_Edad_Laboral"]
-    sel("Porcentaje_Edad_Laboral", [x < 55, (x >= 55) & (x <= 70), x > 70], [ETQ["A"], ETQ["M"], ETQ["A"]])
+    sel("Porcentaje_Edad_Laboral", [x < 55, (x >= 55) & (x <= 70), x > 70], [A, B, M])
     # Tasa de desempleo: <6 % BAJO · 6-10 % MEDIO · >10 % ALTO
     x = df["Tasa_Desempleo"]
-    sel("Tasa_Desempleo", [x < 6, (x >= 6) & (x <= 10), x > 10], [ETQ["B"], ETQ["M"], ETQ["A"]])
-    # Población en edad laboral con educación secundaria o superior: ≥60 % BAJO · 30-59 % MEDIO · <30 % ALTO
+    sel("Tasa_Desempleo", [x < 6, (x >= 6) & (x <= 10), x > 10], [B, M, A])
+    # Población en edad laboral con educación secundaria o superior (hoja CHR_ZANZIBAR):
+    # >=60 % BAJO · 30-59 % MEDIO · 10-29 % ALTO · <10 % MUY ALTO
     x = df["Porcentaje_Edad_Laboral_Estudios"]
-    sel("Porcentaje_Edad_Laboral_Estudios", [x >= 60, (x >= 30) & (x < 60), x < 30], [ETQ["B"], ETQ["M"], ETQ["A"]])
+    sel("Porcentaje_Edad_Laboral_Estudios", [x >= 60, (x >= 30) & (x < 60), (x >= 10) & (x < 30), x < 10], [B, M, A, MA])
     df.replace({"nan": None}, inplace=True)
     return df
 
