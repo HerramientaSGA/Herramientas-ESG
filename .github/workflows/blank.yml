@@ -3,8 +3,7 @@ name: Actualizar datos del banco mundial
 on:
   workflow_dispatch:       # manual
   schedule:
-    - cron: '0 */2 * * *'   # minuto 0 de cada 2 horas (00:00, 02:00, 04:00… hora UTC)
-
+    - cron: '0 */6 * * *' 
 permissions:
   contents: write
 
